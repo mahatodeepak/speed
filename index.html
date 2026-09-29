@@ -1,0 +1,1339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+<title>GPS Drawing Speedometer</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100%;
+    font-family: Arial, sans-serif;
+    background: #071018;
+    color: #ffffff;
+}
+
+body {
+    display: flex;
+    justify-content: center;
+}
+
+.app {
+    width: 100%;
+    max-width: 600px;
+    padding: 12px;
+}
+
+/* HEADER */
+
+.header {
+    text-align: center;
+    padding: 8px 0 12px;
+}
+
+.header h1 {
+    margin: 0;
+    font-size: 24px;
+}
+
+.header p {
+    margin: 5px 0 0;
+    color: #9eb0bd;
+    font-size: 13px;
+}
+
+/* SPEED */
+
+.speed-card {
+    background: #101c26;
+    border: 1px solid #263746;
+    border-radius: 20px;
+    padding: 18px;
+    text-align: center;
+    margin-bottom: 12px;
+}
+
+.speed-label {
+    font-size: 13px;
+    color: #9eb0bd;
+    letter-spacing: 2px;
+}
+
+.speed {
+    font-size: 72px;
+    line-height: 1;
+    font-weight: bold;
+    margin: 10px 0 4px;
+}
+
+.unit {
+    font-size: 18px;
+    color: #a9bbc8;
+}
+
+.status {
+    margin-top: 12px;
+    font-size: 14px;
+}
+
+.status-dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #777;
+    margin-right: 6px;
+}
+
+.status-dot.active {
+    background: #39e58c;
+}
+
+/* DRAWING AREA */
+
+.map-card {
+    background: #0b151d;
+    border: 1px solid #263746;
+    border-radius: 20px;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+
+.canvas-title {
+    padding: 12px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #263746;
+}
+
+.canvas-title span:first-child {
+    font-weight: bold;
+}
+
+.canvas-title span:last-child {
+    font-size: 12px;
+    color: #8fa4b2;
+}
+
+.canvas-wrap {
+    width: 100%;
+    height: 360px;
+    position: relative;
+    background:
+        linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px);
+    background-size: 30px 30px;
+}
+
+canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.center-marker {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 12px;
+    height: 12px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    border: 2px solid white;
+    background: #39e58c;
+    pointer-events: none;
+}
+
+.center-label {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(10px, 8px);
+    font-size: 10px;
+    color: #9eb0bd;
+    pointer-events: none;
+}
+
+/* STATS */
+
+.stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.stat {
+    background: #101c26;
+    border: 1px solid #263746;
+    border-radius: 15px;
+    padding: 13px;
+}
+
+.stat-name {
+    font-size: 12px;
+    color: #8fa4b2;
+}
+
+.stat-value {
+    font-size: 20px;
+    font-weight: bold;
+    margin-top: 5px;
+}
+
+/* BUTTONS */
+
+.buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+button {
+    border: 0;
+    border-radius: 14px;
+    padding: 15px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    min-height: 52px;
+}
+
+.start {
+    background: #39e58c;
+    color: #06120c;
+}
+
+.stop {
+    background: #ff6464;
+    color: white;
+}
+
+.reset {
+    grid-column: 1 / -1;
+    background: #1d2b36;
+    color: white;
+    border: 1px solid #344957;
+}
+
+button:disabled {
+    opacity: 0.45;
+}
+
+/* INFO */
+
+.info {
+    margin-top: 12px;
+    padding: 13px;
+    background: #0e1921;
+    border: 1px solid #263746;
+    border-radius: 15px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #91a5b2;
+}
+
+.error {
+    color: #ff8585;
+}
+
+@media (max-width: 380px) {
+    .speed {
+        font-size: 60px;
+    }
+
+    .canvas-wrap {
+        height: 300px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+    <div class="header">
+        <h1>GPS Drawing Speedometer</h1>
+        <p>Your movement drawn from GPS — no map required</p>
+    </div>
+
+    <div class="speed-card">
+
+        <div class="speed-label">CURRENT SPEED</div>
+
+        <div class="speed" id="speed">
+            0.0
+        </div>
+
+        <div class="unit">
+            km/h
+        </div>
+
+        <div class="status">
+            <span id="statusDot" class="status-dot"></span>
+            <span id="status">GPS stopped</span>
+        </div>
+
+    </div>
+
+    <div class="map-card">
+
+        <div class="canvas-title">
+            <span>Movement Drawing</span>
+            <span id="points">0 points</span>
+        </div>
+
+        <div class="canvas-wrap" id="canvasWrap">
+
+            <canvas id="trackCanvas"></canvas>
+
+            <div class="center-marker"></div>
+            <div class="center-label">START</div>
+
+        </div>
+
+    </div>
+
+    <div class="stats">
+
+        <div class="stat">
+            <div class="stat-name">MAX SPEED</div>
+            <div class="stat-value">
+                <span id="maxSpeed">0.0</span> km/h
+            </div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-name">DISTANCE</div>
+            <div class="stat-value">
+                <span id="distance">0.00</span> km
+            </div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-name">TRIP TIME</div>
+            <div class="stat-value" id="time">
+                00:00:00
+            </div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-name">GPS ACCURACY</div>
+            <div class="stat-value">
+                <span id="accuracy">--</span> m
+            </div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-name">DIRECTION</div>
+            <div class="stat-value" id="direction">
+                --
+            </div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-name">POSITION</div>
+            <div class="stat-value" id="position">
+                --
+            </div>
+        </div>
+
+    </div>
+
+    <div class="buttons">
+
+        <button
+            id="startBtn"
+            class="start">
+            START GPS
+        </button>
+
+        <button
+            id="stopBtn"
+            class="stop"
+            disabled>
+            STOP
+        </button>
+
+        <button
+            id="resetBtn"
+            class="reset">
+            RESET DRAWING
+        </button>
+
+    </div>
+
+    <div class="info" id="info">
+        Tap <b>START GPS</b> and allow location permission.
+        For best results, use the app outdoors with a clear view of the sky.
+    </div>
+
+</div>
+
+<script>
+"use strict";
+
+/* =========================
+   ELEMENTS
+========================= */
+
+const speedEl = document.getElementById("speed");
+const maxSpeedEl = document.getElementById("maxSpeed");
+const distanceEl = document.getElementById("distance");
+const accuracyEl = document.getElementById("accuracy");
+const directionEl = document.getElementById("direction");
+const positionEl = document.getElementById("position");
+const timeEl = document.getElementById("time");
+const statusEl = document.getElementById("status");
+const statusDot = document.getElementById("statusDot");
+const pointsEl = document.getElementById("points");
+const infoEl = document.getElementById("info");
+
+const startBtn = document.getElementById("startBtn");
+const stopBtn = document.getElementById("stopBtn");
+const resetBtn = document.getElementById("resetBtn");
+
+const canvas = document.getElementById("trackCanvas");
+const canvasWrap = document.getElementById("canvasWrap");
+
+const ctx = canvas.getContext("2d");
+
+/* =========================
+   VARIABLES
+========================= */
+
+let watchId = null;
+
+let tracking = false;
+
+let startTime = null;
+
+let timerId = null;
+
+let totalDistance = 0;
+
+let maxSpeed = 0;
+
+let lastPosition = null;
+
+let points = [];
+
+/*
+   Drawing system.
+
+   The first GPS point becomes the origin.
+   Latitude / longitude are converted into
+   local X/Y distances in metres.
+
+   This means:
+   - no map
+   - no map tiles
+   - no API
+*/
+
+let origin = null;
+
+let scale = 1;
+
+let canvasWidth = 0;
+let canvasHeight = 0;
+
+/* =========================
+   CANVAS
+========================= */
+
+function resizeCanvas() {
+
+    const rect = canvasWrap.getBoundingClientRect();
+
+    const dpr = window.devicePixelRatio || 1;
+
+    canvasWidth = rect.width;
+    canvasHeight = rect.height;
+
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+
+    ctx.setTransform(
+        dpr,
+        0,
+        0,
+        dpr,
+        0,
+        0
+    );
+
+    drawTrack();
+}
+
+window.addEventListener("resize", resizeCanvas);
+
+resizeCanvas();
+
+/* =========================
+   GEO CALCULATIONS
+========================= */
+
+function toRadians(degrees) {
+    return degrees * Math.PI / 180;
+}
+
+function distanceBetween(lat1, lon1, lat2, lon2) {
+
+    const R = 6371000;
+
+    const p1 = toRadians(lat1);
+    const p2 = toRadians(lat2);
+
+    const dp = toRadians(lat2 - lat1);
+    const dl = toRadians(lon2 - lon1);
+
+    const a =
+        Math.sin(dp / 2) *
+        Math.sin(dp / 2) +
+        Math.cos(p1) *
+        Math.cos(p2) *
+        Math.sin(dl / 2) *
+        Math.sin(dl / 2);
+
+    const c =
+        2 *
+        Math.atan2(
+            Math.sqrt(a),
+            Math.sqrt(1 - a)
+        );
+
+    return R * c;
+}
+
+function calculateBearing(lat1, lon1, lat2, lon2) {
+
+    const p1 = toRadians(lat1);
+    const p2 = toRadians(lat2);
+
+    const dl = toRadians(lon2 - lon1);
+
+    const y = Math.sin(dl) * Math.cos(p2);
+
+    const x =
+        Math.cos(p1) * Math.sin(p2) -
+        Math.sin(p1) *
+        Math.cos(p2) *
+        Math.cos(dl);
+
+    let bearing =
+        Math.atan2(y, x) *
+        180 /
+        Math.PI;
+
+    bearing = (bearing + 360) % 360;
+
+    return bearing;
+}
+
+function directionName(degrees) {
+
+    if (!Number.isFinite(degrees)) {
+        return "--";
+    }
+
+    const directions = [
+        "N",
+        "NE",
+        "E",
+        "SE",
+        "S",
+        "SW",
+        "W",
+        "NW"
+    ];
+
+    const index =
+        Math.round(degrees / 45) % 8;
+
+    return directions[index];
+}
+
+/* =========================
+   GPS → DRAWING COORDINATE
+========================= */
+
+function gpsToLocal(lat, lon) {
+
+    if (!origin) {
+        origin = {
+            lat: lat,
+            lon: lon
+        };
+    }
+
+    const metersPerDegreeLat = 111320;
+
+    const metersPerDegreeLon =
+        111320 *
+        Math.cos(toRadians(origin.lat));
+
+    const x =
+        (lon - origin.lon) *
+        metersPerDegreeLon;
+
+    const y =
+        -(lat - origin.lat) *
+        metersPerDegreeLat;
+
+    return {
+        x: x,
+        y: y
+    };
+}
+
+/* =========================
+   DRAW TRACK
+========================= */
+
+function drawTrack() {
+
+    ctx.clearRect(
+        0,
+        0,
+        canvasWidth,
+        canvasHeight
+    );
+
+    if (points.length === 0) {
+        return;
+    }
+
+    /*
+       Find drawing bounds.
+    */
+
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+
+    for (const p of points) {
+
+        minX = Math.min(minX, p.x);
+        maxX = Math.max(maxX, p.x);
+
+        minY = Math.min(minY, p.y);
+        maxY = Math.max(maxY, p.y);
+    }
+
+    let width = maxX - minX;
+    let height = maxY - minY;
+
+    /*
+       Prevent division by zero
+       when standing still.
+    */
+
+    if (width < 1) {
+        width = 1;
+    }
+
+    if (height < 1) {
+        height = 1;
+    }
+
+    const padding = 40;
+
+    const availableWidth =
+        Math.max(
+            canvasWidth - padding * 2,
+            50
+        );
+
+    const availableHeight =
+        Math.max(
+            canvasHeight - padding * 2,
+            50
+        );
+
+    scale = Math.min(
+        availableWidth / width,
+        availableHeight / height
+    );
+
+    /*
+       Don't make a tiny movement fill
+       the entire screen excessively.
+    */
+
+    scale = Math.min(scale, 8);
+
+    const centerX =
+        canvasWidth / 2;
+
+    const centerY =
+        canvasHeight / 2;
+
+    function screenX(x) {
+
+        const middleX =
+            (minX + maxX) / 2;
+
+        return centerX +
+            (x - middleX) * scale;
+    }
+
+    function screenY(y) {
+
+        const middleY =
+            (minY + maxY) / 2;
+
+        return centerY +
+            (y - middleY) * scale;
+    }
+
+    /*
+       Track line
+    */
+
+    if (points.length >= 2) {
+
+        ctx.beginPath();
+
+        ctx.lineWidth = 4;
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        ctx.strokeStyle = "#39e58c";
+
+        ctx.moveTo(
+            screenX(points[0].x),
+            screenY(points[0].y)
+        );
+
+        for (let i = 1; i < points.length; i++) {
+
+            ctx.lineTo(
+                screenX(points[i].x),
+                screenY(points[i].y)
+            );
+        }
+
+        ctx.stroke();
+    }
+
+    /*
+       Start point
+    */
+
+    const first = points[0];
+
+    ctx.beginPath();
+
+    ctx.arc(
+        screenX(first.x),
+        screenY(first.y),
+        7,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+
+    ctx.beginPath();
+
+    ctx.arc(
+        screenX(first.x),
+        screenY(first.y),
+        4,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fillStyle = "#39e58c";
+    ctx.fill();
+
+    /*
+       Current position
+    */
+
+    const current =
+        points[points.length - 1];
+
+    ctx.beginPath();
+
+    ctx.arc(
+        screenX(current.x),
+        screenY(current.y),
+        8,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fillStyle = "#ffcc66";
+    ctx.fill();
+
+    ctx.beginPath();
+
+    ctx.arc(
+        screenX(current.x),
+        screenY(current.y),
+        4,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+
+    /*
+       Start label
+    */
+
+    ctx.font = "11px Arial";
+    ctx.fillStyle = "#ffffff";
+
+    ctx.fillText(
+        "START",
+        screenX(first.x) + 10,
+        screenY(first.y) - 10
+    );
+
+    ctx.fillText(
+        "YOU",
+        screenX(current.x) + 10,
+        screenY(current.y) - 10
+    );
+}
+
+/* =========================
+   SPEED
+========================= */
+
+function getSpeed(position) {
+
+    /*
+       Browser GPS speed is in metres/second.
+    */
+
+    if (
+        position.coords.speed !== null &&
+        Number.isFinite(position.coords.speed) &&
+        position.coords.speed >= 0
+    ) {
+
+        return position.coords.speed * 3.6;
+    }
+
+    /*
+       If GPS does not provide speed,
+       calculate it from two positions.
+    */
+
+    if (!lastPosition) {
+        return 0;
+    }
+
+    const distance =
+        distanceBetween(
+            lastPosition.coords.latitude,
+            lastPosition.coords.longitude,
+            position.coords.latitude,
+            position.coords.longitude
+        );
+
+    const time =
+        (position.timestamp -
+         lastPosition.timestamp) / 1000;
+
+    if (
+        time <= 0 ||
+        !Number.isFinite(time)
+    ) {
+        return 0;
+    }
+
+    return (
+        distance / time
+    ) * 3.6;
+}
+
+/* =========================
+   GPS SUCCESS
+========================= */
+
+function gpsSuccess(position) {
+
+    const coords = position.coords;
+
+    const lat = coords.latitude;
+    const lon = coords.longitude;
+
+    /*
+       Ignore obviously invalid values.
+    */
+
+    if (
+        !Number.isFinite(lat) ||
+        !Number.isFinite(lon)
+    ) {
+        return;
+    }
+
+    const accuracy =
+        Number.isFinite(coords.accuracy)
+            ? coords.accuracy
+            : null;
+
+    /*
+       Very inaccurate GPS fixes can create
+       strange jumps. We still display the
+       position but avoid drawing extreme jumps.
+    */
+
+    const local =
+        gpsToLocal(lat, lon);
+
+    const currentPoint = {
+        lat: lat,
+        lon: lon,
+        x: local.x,
+        y: local.y,
+        timestamp: position.timestamp
+    };
+
+    /*
+       Distance
+    */
+
+    if (lastPosition) {
+
+        const d =
+            distanceBetween(
+                lastPosition.coords.latitude,
+                lastPosition.coords.longitude,
+                lat,
+                lon
+            );
+
+        /*
+           Ignore extremely large GPS jumps.
+        */
+
+        if (
+            Number.isFinite(d) &&
+            d >= 0 &&
+            d < 500
+        ) {
+            totalDistance += d;
+        }
+
+        /*
+           Direction
+        */
+
+        const bearing =
+            calculateBearing(
+                lastPosition.coords.latitude,
+                lastPosition.coords.longitude,
+                lat,
+                lon
+            );
+
+        if (Number.isFinite(bearing)) {
+
+            directionEl.textContent =
+                directionName(bearing) +
+                " " +
+                Math.round(bearing) +
+                "°";
+        }
+    }
+
+    /*
+       Speed
+    */
+
+    let currentSpeed =
+        getSpeed(position);
+
+    if (
+        !Number.isFinite(currentSpeed) ||
+        currentSpeed < 0
+    ) {
+        currentSpeed = 0;
+    }
+
+    /*
+       Small GPS noise while stationary
+       can produce tiny speeds.
+    */
+
+    if (currentSpeed < 1) {
+        currentSpeed = 0;
+    }
+
+    if (currentSpeed > maxSpeed) {
+        maxSpeed = currentSpeed;
+    }
+
+    /*
+       Add drawing point.
+
+       If GPS accuracy is very poor,
+       avoid adding too many points.
+    */
+
+    if (
+        accuracy === null ||
+        accuracy <= 100
+    ) {
+        points.push(currentPoint);
+    }
+
+    /*
+       Keep memory reasonable.
+    */
+
+    if (points.length > 5000) {
+        points.shift();
+    }
+
+    /*
+       Update display
+    */
+
+    speedEl.textContent =
+        currentSpeed.toFixed(1);
+
+    maxSpeedEl.textContent =
+        maxSpeed.toFixed(1);
+
+    distanceEl.textContent =
+        (totalDistance / 1000).toFixed(2);
+
+    if (accuracy !== null) {
+
+        accuracyEl.textContent =
+            Math.round(accuracy);
+    }
+
+    positionEl.textContent =
+        lat.toFixed(5) +
+        ", " +
+        lon.toFixed(5);
+
+    pointsEl.textContent =
+        points.length +
+        " points";
+
+    statusEl.textContent =
+        "GPS active";
+
+    statusDot.classList.add("active");
+
+    infoEl.innerHTML =
+        "GPS is receiving your position. " +
+        "Keep the phone outdoors for better accuracy.";
+
+    /*
+       Draw
+    */
+
+    drawTrack();
+
+    /*
+       Save current GPS position
+       for next calculation.
+    */
+
+    lastPosition = position;
+}
+
+/* =========================
+   GPS ERROR
+========================= */
+
+function gpsError(error) {
+
+    statusDot.classList.remove("active");
+
+    if (error.code === 1) {
+
+        statusEl.textContent =
+            "Location permission denied";
+
+        infoEl.innerHTML =
+            '<span class="error">' +
+            "Location permission was denied. " +
+            "Allow location access in your browser settings." +
+            "</span>";
+
+    } else if (error.code === 2) {
+
+        statusEl.textContent =
+            "GPS unavailable";
+
+        infoEl.innerHTML =
+            '<span class="error">' +
+            "Your phone could not determine your location. " +
+            "Try going outdoors." +
+            "</span>";
+
+    } else if (error.code === 3) {
+
+        statusEl.textContent =
+            "GPS timeout";
+
+        infoEl.innerHTML =
+            '<span class="error">' +
+            "GPS took too long to respond. " +
+            "Try again." +
+            "</span>";
+
+    } else {
+
+        statusEl.textContent =
+            "GPS error";
+
+        infoEl.innerHTML =
+            '<span class="error">' +
+            "Unable to obtain GPS position." +
+            "</span>";
+    }
+}
+
+/* =========================
+   TIMER
+========================= */
+
+function updateTimer() {
+
+    if (!startTime) {
+        return;
+    }
+
+    const elapsed =
+        Math.floor(
+            (Date.now() - startTime) / 1000
+        );
+
+    const hours =
+        Math.floor(elapsed / 3600);
+
+    const minutes =
+        Math.floor(
+            (elapsed % 3600) / 60
+        );
+
+    const seconds =
+        elapsed % 60;
+
+    timeEl.textContent =
+        String(hours).padStart(2, "0") +
+        ":" +
+        String(minutes).padStart(2, "0") +
+        ":" +
+        String(seconds).padStart(2, "0");
+}
+
+/* =========================
+   START GPS
+========================= */
+
+function startGPS() {
+
+    if (!("geolocation" in navigator)) {
+
+        infoEl.innerHTML =
+            '<span class="error">' +
+            "This browser does not support GPS location." +
+            "</span>";
+
+        return;
+    }
+
+    if (tracking) {
+        return;
+    }
+
+    tracking = true;
+
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+
+    statusEl.textContent =
+        "Starting GPS...";
+
+    statusDot.classList.add("active");
+
+    infoEl.textContent =
+        "Waiting for GPS location...";
+
+    if (!startTime) {
+
+        startTime = Date.now();
+
+        timerId =
+            setInterval(
+                updateTimer,
+                1000
+            );
+    }
+
+    /*
+       enableHighAccuracy requests the
+       phone's best available location.
+    */
+
+    watchId =
+        navigator.geolocation.watchPosition(
+            gpsSuccess,
+            gpsError,
+            {
+                enableHighAccuracy: true,
+                maximumAge: 1000,
+                timeout: 15000
+            }
+        );
+}
+
+/* =========================
+   STOP GPS
+========================= */
+
+function stopGPS() {
+
+    if (watchId !== null) {
+
+        navigator.geolocation.clearWatch(
+            watchId
+        );
+
+        watchId = null;
+    }
+
+    tracking = false;
+
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+
+    statusDot.classList.remove("active");
+
+    statusEl.textContent =
+        "GPS stopped";
+
+    infoEl.textContent =
+        "Tracking stopped. Press START GPS to continue.";
+}
+
+/* =========================
+   RESET
+========================= */
+
+function resetTracking() {
+
+    stopGPS();
+
+    totalDistance = 0;
+
+    maxSpeed = 0;
+
+    lastPosition = null;
+
+    points = [];
+
+    origin = null;
+
+    startTime = null;
+
+    if (timerId !== null) {
+
+        clearInterval(timerId);
+
+        timerId = null;
+    }
+
+    speedEl.textContent = "0.0";
+
+    maxSpeedEl.textContent = "0.0";
+
+    distanceEl.textContent = "0.00";
+
+    accuracyEl.textContent = "--";
+
+    directionEl.textContent = "--";
+
+    positionEl.textContent = "--";
+
+    timeEl.textContent = "00:00:00";
+
+    pointsEl.textContent = "0 points";
+
+    statusEl.textContent =
+        "GPS stopped";
+
+    statusDot.classList.remove("active");
+
+    infoEl.innerHTML =
+        "Tap <b>START GPS</b> and allow location permission.";
+
+    drawTrack();
+}
+
+/* =========================
+   BUTTONS
+========================= */
+
+startBtn.addEventListener(
+    "click",
+    startGPS
+);
+
+stopBtn.addEventListener(
+    "click",
+    stopGPS
+);
+
+resetBtn.addEventListener(
+    "click",
+    resetTracking
+);
+
+/* =========================
+   PAGE VISIBILITY
+========================= */
+
+document.addEventListener(
+    "visibilitychange",
+    function() {
+
+        /*
+           We intentionally don't reset
+           the trip when the browser is
+           temporarily hidden.
+        */
+
+        if (document.hidden) {
+            return;
+        }
+
+        if (tracking) {
+
+            infoEl.textContent =
+                "GPS tracking resumed.";
+        }
+    }
+);
+
+</script>
+
+</body>
+</html>
